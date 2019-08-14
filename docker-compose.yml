@@ -1,0 +1,91 @@
+version: '3.5'
+services:
+ pack_lambda:
+  build: .
+  command: ["./pack_lambda"]
+  volumes:
+   - .:/project
+  environment:
+   - PORT=1234
+
+ backend:
+  build: .
+  command: ["./webserver"]
+  ports:
+   - "8081:8081"
+  environment:
+   - PORT=8081
+   - FLASK_APP=mlpython
+   - FLASK_DEBUG=true
+   - rabbitmq_ampq=pyamqp://guest@rabbitmq//
+   - redis_backend=redis://redis
+  depends_on:
+   - postgres
+   - rabbitmq
+   - redis
+
+ celery:
+  build: .
+  command: ["./celery"]
+  ports:
+   - "5001:5001"
+  environment:
+   - PORT=8081
+   - FLASK_APP=mlpython
+   - FLASK_DEBUG=true
+   - rabbitmq_ampq=pyamqp://guest@rabbitmq//
+   - redis_backend=redis://redis
+  depends_on:
+   - postgres
+   - rabbitmq
+   - redis
+
+ rabbitmq:
+  image: "rabbitmq:3-management"
+  hostname: "rabbit"
+  ports:
+   - "15672:15672"
+   - "5672:5672"
+  labels:
+   NAME: "rabbitmq"
+
+
+ redis:
+  image: redis
+  container_name: redis
+  expose:
+    - 6379
+ 
+ postgres:
+    image: postgres
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+        - POSTGRES_USER=mambaml
+        - POSTGRES_PASSWORD=mambaml
+        - POSTGRES_DB=mambadb
+
+ mysql_db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'mambadb'
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: 'mambaml'
+      # You can use whatever password you like
+      MYSQL_PASSWORD: 'mambaml'
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: 'mambaml'
+    ports:
+      # <Port exposed> : < MySQL Port running inside container>
+      - '3306:3306'
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+      # Where our data will be persisted
+    volumes:
+      - my-db:/var/lib/mysql
+
+volumes:
+  my-db:
